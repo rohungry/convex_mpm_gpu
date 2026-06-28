@@ -226,6 +226,8 @@ void GpuMpmSolver<T>::CopyContactPairs(GpuMpmState<T> *state, const MpmParticleC
     this->GpuSync();
 }
 
+
+// Core solver for updating contact
 template<typename T>
 void GpuMpmSolver<T>::UpdateContact(GpuMpmState<T> *state, const T& dt) const {
     const auto &n_contacts = state->num_contacts();
