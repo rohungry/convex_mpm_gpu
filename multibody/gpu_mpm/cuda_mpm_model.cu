@@ -8,6 +8,9 @@
 #include "multibody/gpu_mpm/cuda_mpm_kernels.cuh"
 #include "multibody/gpu_mpm/radix_sort.cuh"
 
+#include <random>
+#include <vector>
+
 namespace drake {
 namespace multibody {
 namespace gmpm {
@@ -135,6 +138,18 @@ void GpuMpmState<T>::Finalize() {
     CUDA_SAFE_CALL(cudaMalloc(&d_g_Grad_, grid_config_.G_DOMAIN_VOLUME * sizeof(Vec3<T>)));
     CUDA_SAFE_CALL(cudaMalloc(&d_g_Dir_, grid_config_.G_DOMAIN_VOLUME * sizeof(Vec3<T>)));
     CUDA_SAFE_CALL(cudaMalloc(&d_g_v_star_, grid_config_.G_DOMAIN_VOLUME * sizeof(Vec3<T>)));
+    // Added grid vector allocations
+    const size_t grid_vec_bytes = sizeof(T) * 3 * grid_config_.G_DOMAIN_VOLUME;
+    CUDA_SAFE_CALL(cudaMalloc(&d_g_P_,  grid_vec_bytes));
+    CUDA_SAFE_CALL(cudaMalloc(&d_g_Hp_, grid_vec_bytes));
+    CUDA_SAFE_CALL(cudaMemset(d_g_P_,  0, grid_vec_bytes));
+    CUDA_SAFE_CALL(cudaMemset(d_g_Hp_, 0, grid_vec_bytes));
+
+    // Hv grid vectors (same per-cell sizing as d_g_Grad_)
+    CUDA_SAFE_CALL(cudaMalloc(&d_g_P_,  grid_config_.G_DOMAIN_VOLUME * sizeof(Vec3<T>)));
+    CUDA_SAFE_CALL(cudaMalloc(&d_g_Hp_, grid_config_.G_DOMAIN_VOLUME * sizeof(Vec3<T>)));
+    CUDA_SAFE_CALL(cudaMemset(d_g_P_,  0, grid_config_.G_DOMAIN_VOLUME * sizeof(Vec3<T>)));
+    CUDA_SAFE_CALL(cudaMemset(d_g_Hp_, 0, grid_config_.G_DOMAIN_VOLUME * sizeof(Vec3<T>)));
 
     radix_sort(this->next_sort_keys(), this->current_sort_keys(), this->next_sort_ids(), this->current_sort_ids(), sort_buffer_, sort_buffer_size_, static_cast<unsigned int>(n_particles_));
     CUDA_SAFE_CALL(cudaMalloc(&sort_buffer_, sizeof(unsigned int) * sort_buffer_size_));
@@ -213,6 +228,11 @@ void GpuMpmState<T>::Destroy() {
     d_g_Dir_ = nullptr;
     d_g_v_star_ = nullptr;
 
+    CUDA_SAFE_CALL(cudaFree(d_g_P_));
+    CUDA_SAFE_CALL(cudaFree(d_g_Hp_));
+    d_g_P_  = nullptr;
+    d_g_Hp_ = nullptr;
+
     CUDA_SAFE_CALL(cudaFree(sort_buffer_));
     sort_buffer_ = nullptr;
     sort_buffer_size_ = 0;
@@ -258,6 +278,15 @@ void GpuMpmState<T>::Destroy() {
         d_contact_sort_keys_ = nullptr;
     }
 
+    if (d_contact_Hess_) {
+    CUDA_SAFE_CALL(cudaFree(d_contact_Hess_));
+    d_contact_Hess_ = nullptr;
+    }
+    if (d_contact_scratch_) {
+    CUDA_SAFE_CALL(cudaFree(d_contact_scratch_));
+    d_contact_scratch_ = nullptr;
+    }
+
     if (d_F_Bq_W_tau_) {
         CUDA_SAFE_CALL(cudaFree(d_F_Bq_W_tau_));
         d_F_Bq_W_tau_ = nullptr;
@@ -266,6 +295,10 @@ void GpuMpmState<T>::Destroy() {
         CUDA_SAFE_CALL(cudaFree(d_F_Bq_W_f_));
         d_F_Bq_W_f_ = nullptr;
     }
+    if (d_g_P_)            CUDA_SAFE_CALL(cudaFree(d_g_P_));
+    if (d_g_Hp_)           CUDA_SAFE_CALL(cudaFree(d_g_Hp_));
+    if (d_contact_Hess_)   CUDA_SAFE_CALL(cudaFree(d_contact_Hess_));
+    if (d_contact_scratch_)CUDA_SAFE_CALL(cudaFree(d_contact_scratch_));
 }
 
 template<typename T>
@@ -340,9 +373,23 @@ void GpuMpmState<T>::ReallocateContacts(size_t num_contacts) {
         if (d_contact_sort_ids_) {
             CUDA_SAFE_CALL(cudaFree(d_contact_sort_ids_));
         }
+
+        if (d_contact_Hess_) {
+        CUDA_SAFE_CALL(cudaFree(d_contact_Hess_));
+         }
+        if (d_contact_scratch_) {
+        CUDA_SAFE_CALL(cudaFree(d_contact_scratch_));
+        }
+
         cudaMalloc(&d_contact_mpm_id_, sizeof(uint32_t) * contact_buffer_size);
         cudaMalloc(&d_contact_rigid_id_, sizeof(uint32_t) * contact_buffer_size);
         cudaMalloc(&d_contact_pos_, sizeof(T) * 3 * contact_buffer_size);
+        // in the "need to grow" branch, after freeing the old contact arrays:
+        CUDA_SAFE_CALL(cudaMalloc(&d_contact_Hess_,    sizeof(T) * 9 * contact_buffer_size));
+        CUDA_SAFE_CALL(cudaMalloc(&d_contact_scratch_, sizeof(T) * 3 * contact_buffer_size));
+        // and in the free side of that branch (and Destroy):
+        //   if (d_contact_Hess_)    CUDA_SAFE_CALL(cudaFree(d_contact_Hess_));
+        //   if (d_contact_scratch_) CUDA_SAFE_CALL(cudaFree(d_contact_scratch_));
         cudaMalloc(&d_contact_vel_, sizeof(T) * 3 * contact_buffer_size);
         cudaMalloc(&d_contact_dist_, sizeof(T) * contact_buffer_size);
         cudaMalloc(&d_contact_normal_, sizeof(T) * 3 * contact_buffer_size);
@@ -350,6 +397,8 @@ void GpuMpmState<T>::ReallocateContacts(size_t num_contacts) {
         cudaMalloc(&d_contact_rigid_p_WB_, sizeof(T) * 3 * contact_buffer_size);
         cudaMalloc(&d_contact_sort_keys_, sizeof(uint32_t) * contact_buffer_size);
         cudaMalloc(&d_contact_sort_ids_, sizeof(uint32_t) * contact_buffer_size);
+        cudaMalloc(&d_contact_Hess_,    sizeof(Mat3<T>) * contact_buffer_size);
+        cudaMalloc(&d_contact_scratch_, sizeof(Vec3<T>) * contact_buffer_size);
     }
 }
 
@@ -380,6 +429,35 @@ void GpuMpmState<T>::ExternelBodyForceToHost() {
     CUDA_SAFE_CALL(cudaMemcpy(h_external_forces_.F_Bq_W_tau.data(), F_Bq_W_tau(), sizeof(Vec3<T>) * num_external_bodies(), cudaMemcpyDeviceToHost));
     CUDA_SAFE_CALL(cudaMemcpy(h_external_forces_.F_Bq_W_f.data(), F_Bq_W_f(), sizeof(Vec3<T>) * num_external_bodies(), cudaMemcpyDeviceToHost));
 }
+
+template <typename T>
+void fill_random_touched_impl(GpuMpmState<T>* s, T* dst_dev) {
+  const auto& gc = s->grid_config();
+  const uint32_t n_blocks = s->grid_touched_cnt_host();
+  const size_t n_cells = size_t(1) << (gc.DOMAIN_BITS * 3);  // G_DOMAIN_VOLUME
+
+  // pull touched block ids to host
+  std::vector<uint32_t> h_ids(n_blocks);
+  CUDA_SAFE_CALL(cudaMemcpy(h_ids.data(), s->grid_touched_ids(),
+                            sizeof(uint32_t) * n_blocks, cudaMemcpyDeviceToHost));
+
+  std::vector<T> h(3 * n_cells, T(0));
+  std::mt19937 rng(12345);
+  std::normal_distribution<double> N(0.0, 1.0);
+  const uint32_t bvol = gc.G_BLOCK_VOLUME;
+  for (uint32_t b = 0; b < n_blocks; ++b) {
+    const uint32_t block_idx = h_ids[b];
+    for (uint32_t local = 0; local < bvol; ++local) {
+      const uint32_t cell = (block_idx << (gc.G_BLOCK_BITS * 3)) | local;
+      h[cell*3+0] = T(N(rng));
+      h[cell*3+1] = T(N(rng));
+      h[cell*3+2] = T(N(rng));
+    }
+  }
+  CUDA_SAFE_CALL(cudaMemcpy(dst_dev, h.data(), sizeof(T)*3*n_cells,
+                            cudaMemcpyHostToDevice));
+}
+template void fill_random_touched_impl<config::GpuT>(GpuMpmState<config::GpuT>*, config::GpuT*);
 
 template class GpuMpmState<config::GpuT>;
 

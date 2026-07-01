@@ -248,6 +248,12 @@ void GpuMpmSolver<T>::UpdateContact(GpuMpmState<T> *state, const T& dt) const {
     // Set the absolute tolerance close to machine epsilon so that we almost always exit based on the relative tolerance.
     const T kAbsTol = 16 * std::numeric_limits<T>::epsilon();
 
+    static const bool kHvpSelfTest = std::getenv("MPM_HVP_SELFTEST") != nullptr;
+    if (kHvpSelfTest && state->num_contacts() > 0) {
+        static bool done = false;
+        if (!done) { this->RunHvpSelfTests(state, dt); done = true; std::exit(0); }
+    }
+
     int jacobi_iteration_count = 0;
 
     // norm_dir is the l2 norm of the search direction.
@@ -506,6 +512,7 @@ void GpuMpmSolver<T>::UpdateContact(GpuMpmState<T> *state, const T& dt) const {
         state->config().contact_friction_mu, state->config().contact_stiffness, state->config().contact_epsv, state->config().contact_damping)
         ));
 }
+#include "multibody/gpu_mpm/cuda_mpm_hvp.inc.cu"
 
 template class GpuMpmSolver<config::GpuT>;
 

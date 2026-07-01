@@ -13,6 +13,11 @@ namespace drake {
 namespace multibody {
 namespace gmpm {
 
+void PrecomputeContactHessian(GpuMpmState<T>* s, const T& dt) const;
+void ApplyHessian(GpuMpmState<T>* s, const T* p, T* Hp) const;
+void AssembleContactGradient(GpuMpmState<T>* s, const T& dt, T* g_out) const;
+bool RunHvpSelfTests(GpuMpmState<T>* s, const T& dt) const;
+
 // NOTE(changyu): this solver should be stateless, all the required data should be initialized and stored in `GpuMpmState`.
 // NOTE(changyu): `GpuMpmSolver` is responsive to launch cuda kernels in `cuda_mpm_kernels.cuh`.
 
