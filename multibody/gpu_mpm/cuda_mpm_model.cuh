@@ -132,8 +132,6 @@ public:
     T* grid_Dir() { return d_g_Dir_; }
     T* grid_P()  { return d_g_P_;  }
     T* grid_Hp() { return d_g_Hp_; }
-    T* grid_P() { return d_g_P_; }
-    T* grid_Hp() { return d_g_Hp_; }
     T* grid_v_star() { return d_g_v_star_; }
 
     T* F_Bq_W_tau() { return d_F_Bq_W_tau_; }
