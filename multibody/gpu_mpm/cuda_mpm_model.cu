@@ -2,14 +2,15 @@
 #include <cuda.h>
 #include <iostream>
 #include <numeric>
+#include <random>
+#include <vector>
 #include <cuda_runtime.h>
 
 #include "multibody/gpu_mpm/cuda_mpm_model.cuh"
 #include "multibody/gpu_mpm/cuda_mpm_kernels.cuh"
 #include "multibody/gpu_mpm/radix_sort.cuh"
 
-#include <random>
-#include <vector>
+
 
 namespace drake {
 namespace multibody {
