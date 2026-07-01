@@ -20,11 +20,7 @@
 //#include <random>  // fill_random_touched_impl
 #include "multibody/gpu_mpm/cuda_mpm_hvp_kernels.cuh"
 
-namespace drake {
-namespace multibody {
-namespace gmpm {
 
-// namespace hvp_detail {
 constexpr int kBlk = config::DEFAULT_CUDA_BLOCK_SIZE;
 inline int grid_for(int n) { return (n + kBlk - 1) / kBlk; }
 
@@ -73,7 +69,6 @@ __global__ void fd_resid_kernel(const GridConfig<T> gconf, uint32_t tc,
   atomicAdd(out_resid_sq, rs);
   atomicAdd(out_Hp_sq, hs);
 }
-// }  // namespace hvp_detail
 
 // Forward declaration (defined below; used by AssembleContactGradient).
 template <typename T>
@@ -99,7 +94,6 @@ template <typename T> void fill_random_touched_impl(GpuMpmState<T>* s, T* dst);
 // ---------------------------------------------------------------------------
 template <typename T>
 void GpuMpmSolver<T>::PrecomputeContactHessian(GpuMpmState<T>* s, const T& dt) const {
-  // using namespace hvp_detail;
   const int nc = s->num_contacts();
   if (nc == 0) return;
   CUDA_SAFE_CALL((precompute_contact_world_hessian_kernel<T><<<grid_for(nc), kBlk>>>(
@@ -113,7 +107,6 @@ void GpuMpmSolver<T>::PrecomputeContactHessian(GpuMpmState<T>* s, const T& dt) c
 // Hp = M p + J^T H_c^W (J p). Requires PrecomputeContactHessian first.
 template <typename T>
 void GpuMpmSolver<T>::ApplyHessian(GpuMpmState<T>* s, const T* p_dev, T* Hp_dev) const {
-  // using namespace hvp_detail;
   const int nc = s->num_contacts();
   const uint32_t tc = s->grid_touched_cnt_host() * s->grid_config().G_BLOCK_VOLUME;
 
@@ -149,7 +142,6 @@ void GpuMpmSolver<T>::ApplyHessian(GpuMpmState<T>* s, const T* p_dev, T* Hp_dev)
 template <typename T>
 void GpuMpmSolver<T>::AssembleContactGradient(GpuMpmState<T>* s, const T& dt,
                                               T* g_out_dev) const {
-  // using namespace hvp_detail;
   const int nc = s->num_contacts();
   const uint32_t tc = s->grid_touched_cnt_host() * s->grid_config().G_BLOCK_VOLUME;
 
@@ -206,7 +198,6 @@ __global__ void mass_residual_add_kernel(
 // ---------------------------------------------------------------------------
 template <typename T>
 bool GpuMpmSolver<T>::RunHvpSelfTests(GpuMpmState<T>* s, const T& dt) const {
-  // using namespace hvp_detail;
   const int nc = s->num_contacts();
   if (nc == 0) { printf("[hvp] no contacts; skip\n"); return true; }
   const uint32_t tc = s->grid_touched_cnt_host() * s->grid_config().G_BLOCK_VOLUME;
@@ -272,6 +263,3 @@ bool GpuMpmSolver<T>::RunHvpSelfTests(GpuMpmState<T>* s, const T& dt) const {
   return ok;
 }
 
-}  // namespace gmpm
-}  // namespace multibody
-}  // namespace drake
