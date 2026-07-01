@@ -26,6 +26,8 @@ nvcc_library(
             "cuda_mpm_kernels.cuh", 
             "cuda_mpm_model.cuh",
             "cuda_mpm_solver.cuh",
+            "cuda_mpm_hvp_kernels.cuh",   # <-- add
+            "cuda_mpm_hvp.inc.cu",        # <-- add (included into cuda_mpm_solver.cu, NOT compiled)
             "tph_poisson.h",
             "cpu_mpm_model.h",
             ],
