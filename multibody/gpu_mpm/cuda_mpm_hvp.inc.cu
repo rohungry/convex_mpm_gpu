@@ -17,7 +17,7 @@
 // matches the gradient's linearization, not d^2(energy). Differencing the energy
 // will spuriously "fail" -- that is expected, not a bug.
 
-#include <random>  // fill_random_touched_impl
+//#include <random>  // fill_random_touched_impl
 #include "multibody/gpu_mpm/cuda_mpm_hvp_kernels.cuh"
 
 namespace drake {
@@ -212,7 +212,7 @@ bool GpuMpmSolver<T>::RunHvpSelfTests(GpuMpmState<T>* s, const T& dt) const {
   const uint32_t tc = s->grid_touched_cnt_host() * s->grid_config().G_BLOCK_VOLUME;
   // per-CELL count (G_DOMAIN_VOLUME), NOT G_GRID_VOLUME (= block count)
   const size_t NG = (size_t(1) << (s->grid_config().DOMAIN_BITS * 3));
-
+  
   T *p,*q,*Hp,*Hq,*gp,*gm,*vbase;
   auto A=[&](T**x){ CUDA_SAFE_CALL(cudaMalloc(x, sizeof(T)*3*NG));
                     CUDA_SAFE_CALL(cudaMemset(*x,0,sizeof(T)*3*NG)); };
