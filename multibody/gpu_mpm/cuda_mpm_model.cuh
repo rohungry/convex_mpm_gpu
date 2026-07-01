@@ -130,6 +130,10 @@ public:
     T* grid_Hess() { return d_g_Hess_; }
     T* grid_Grad() { return d_g_Grad_; }
     T* grid_Dir() { return d_g_Dir_; }
+    T* grid_P()  { return d_g_P_;  }
+    T* grid_Hp() { return d_g_Hp_; }
+    T* grid_P() { return d_g_P_; }
+    T* grid_Hp() { return d_g_Hp_; }
     T* grid_v_star() { return d_g_v_star_; }
 
     T* F_Bq_W_tau() { return d_F_Bq_W_tau_; }
@@ -159,6 +163,8 @@ public:
     T* contact_rigid_p_WB() { return d_contact_rigid_p_WB_; }
     uint32_t* contact_sort_keys() { return d_contact_sort_keys_; }
     uint32_t* contact_sort_ids() { return d_contact_sort_ids_; }
+    T* contact_Hess() { return d_contact_Hess_; } 
+    T* contact_scratch() { return d_contact_scratch_; }
     size_t num_contacts() const { return num_contacts_; }
     size_t num_external_bodies() const { return num_external_bodies_; }
 
@@ -254,6 +260,9 @@ private:
     T* d_contact_rigid_v_ = nullptr;
     T* d_contact_rigid_p_WB_ = nullptr;
 
+    T* d_contact_Hess_ = nullptr; // H_c^W per contact (Mat3) (9 * contact_buffer_size)
+    T* d_contact_scratch_ = nullptr; // J p / H_c^W (J p) (Vec3) (3 * contact_buffer_size)
+
     // external force device ptr
     T* d_F_Bq_W_tau_ = nullptr;
     T* d_F_Bq_W_f_ = nullptr;
@@ -285,7 +294,10 @@ private:
     T* d_g_Hess_ = nullptr;
     T* d_g_Grad_ = nullptr;
     T* d_g_Dir_  = nullptr;
-    T* d_g_v_star_ = nullptr;
+    T* d_g_v_star_ = nullptr; // matrix-free Hessian-vector product (Hv) grid vectors
+    // Grid device ptrs for the matrix-free Hessian-vector product
+    T* d_g_P_ = nullptr; // CG vector p (3 * G_DOMAIN_VOLUME)
+    T* d_g_Hp_ = nullptr; // H p (3 * G_DOMAIN_VOLUME)
 
     // Grid domain meta-data
     GridConfig<T> grid_config_;
