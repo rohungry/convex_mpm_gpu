@@ -17,9 +17,6 @@
 // matches the gradient's linearization, not d^2(energy). Differencing the energy
 // will spuriously "fail" -- that is expected, not a bug.
 
-//#include <random>  // fill_random_touched_impl
-#include "multibody/gpu_mpm/cuda_mpm_hvp_kernels.cuh"
-
 
 constexpr int kBlk = config::DEFAULT_CUDA_BLOCK_SIZE;
 inline int grid_for(int n) { return (n + kBlk - 1) / kBlk; }

@@ -8,6 +8,7 @@
 
 #include "multibody/gpu_mpm/cuda_mpm_solver.cuh"
 #include "multibody/gpu_mpm/cuda_mpm_kernels.cuh"
+#include "multibody/gpu_mpm/cuda_mpm_hvp_kernels.cuh"
 #include "multibody/gpu_mpm/radix_sort.cuh"
 
 namespace drake {
